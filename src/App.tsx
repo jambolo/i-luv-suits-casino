@@ -5,7 +5,26 @@ import { Progress } from '@/components/ui/progress'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Play, ChartBar, TrendDown, TrendUp } from '@phosphor-icons/react'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Separator } from '@/components/ui/separator'
+import { Play, ChartBar, TrendDown, TrendUp, Gear } from '@phosphor-icons/react'
+
+interface PayoutConfig {
+  flushRush: {
+    sevenCard: number
+    sixCard: number
+    fiveCard: number
+    fourCard: number
+  }
+  superFlushRush: {
+    sevenCardStraight: number
+    sixCardStraight: number
+    fiveCardStraight: number
+    fourCardStraight: number
+    threeCardStraight: number
+  }
+}
 
 interface SimulationResult {
   betType: string
@@ -14,13 +33,23 @@ interface SimulationResult {
   expectedReturn: number
   handsWon: number
   handsLost: number
+  winRate: number
 }
 
 interface HandResult {
   handNumber: number
   playerCards: string[]
   dealerCards: string[]
-  results: { [betType: string]: { bet: number; payout: number } }
+  playerFlushCards: number
+  dealerFlushCards: number
+  playerBestFlush: string[]
+  dealerBestFlush: string[]
+  dealerQualifies: boolean
+  baseGameResult: 'win' | 'lose' | 'push'
+  playWager: number
+  baseGamePayout: number
+  flushRushPayout: number
+  superFlushRushPayout: number
 }
 
 function App() {
@@ -29,36 +58,57 @@ function App() {
   const [results, setResults] = useState<SimulationResult[]>([])
   const [handDetails, setHandDetails] = useState<HandResult[]>([])
   const [showDetails, setShowDetails] = useState(false)
+  const [showConfig, setShowConfig] = useState(false)
+  
+  const [payoutConfig, setPayoutConfig] = useState<PayoutConfig>({
+    flushRush: {
+      sevenCard: 300,
+      sixCard: 100,
+      fiveCard: 10,
+      fourCard: 1
+    },
+    superFlushRush: {
+      sevenCardStraight: 8000,
+      sixCardStraight: 1000,
+      fiveCardStraight: 100,
+      fourCardStraight: 60,
+      threeCardStraight: 7
+    }
+  })
 
-  const gameRules = `I Love Suits is a casino card game where players bet on suit combinations.
+  const gameRules = `I Luv Suits Poker is a seven (7) card poker game that lets players play against the dealer using seven (7) cards per player. The goal is to get a higher ranking flush with more flush cards than the dealer.
 
 Game Rules:
-- Each hand deals 2 cards to the player and 2 cards to the dealer
-- Players can place bets on various suit combination outcomes
-- Payouts vary based on the rarity of the combination
+• Player makes an Ante wager and receives 7 cards
+• Player can make a Play wager of 1-3x their Ante based on flush cards:
+  - 7+ flush cards: 3x Ante
+  - 5-6 flush cards: 2x Ante  
+  - 3-4 flush cards: 1x Ante
+  - 0-2 flush cards: Fold (lose Ante)
+• Dealer needs 3-card nine-high flush minimum to qualify
+• If dealer doesn't qualify: Ante pays even money, Play pushes
+• If dealer qualifies and player wins: Both Ante and Play pay even money
+• If dealer qualifies and dealer wins: Both Ante and Play lose
 
-Available Bet Types:
-• All Same Suit (15:1) - All 4 cards are the same suit
-• Player Same Suit (3:1) - Both player cards are the same suit  
-• Dealer Same Suit (3:1) - Both dealer cards are the same suit
-• All Different Suits (2:1) - All 4 cards are different suits
-• Exactly 2 Suits (1:1) - Cards contain exactly 2 different suits
-• Exactly 3 Suits (1:1) - Cards contain exactly 3 different suits`
+Bonus Bets (optional):
+• Flush Rush Bonus: Pays based on player's flush cards (4+ to win)
+• Super Flush Rush Bonus: Pays based on player's straight flush cards (3+ to win)
+• Bonus bets win/lose regardless of base game outcome`
 
   const suits = ['♠', '♥', '♦', '♣']
   const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
 
-  const createDeck = () => {
-    const deck = []
+  const createDeck = (): { rank: string; suit: string }[] => {
+    const deck: { rank: string; suit: string }[] = []
     for (const suit of suits) {
       for (const rank of ranks) {
-        deck.push(`${rank}${suit}`)
+        deck.push({ rank, suit })
       }
     }
     return deck
   }
 
-  const shuffleDeck = (deck: string[]) => {
+  const shuffleDeck = (deck: { rank: string; suit: string }[]) => {
     const shuffled = [...deck]
     for (let i = shuffled.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -67,42 +117,139 @@ Available Bet Types:
     return shuffled
   }
 
-  const getSuit = (card: string) => card.slice(-1)
+  const getRankValue = (rank: string): number => {
+    if (rank === 'A') return 14
+    if (rank === 'K') return 13
+    if (rank === 'Q') return 12
+    if (rank === 'J') return 11
+    return parseInt(rank)
+  }
 
-  const evaluateHand = (playerCards: string[], dealerCards: string[]) => {
-    const playerSuits = playerCards.map(getSuit)
-    const dealerSuits = dealerCards.map(getSuit)
-    const allCards = [...playerCards, ...dealerCards]
-    const allSuits = allCards.map(getSuit)
+  const findLongestFlush = (cards: { rank: string; suit: string }[]) => {
+    const suitGroups: { [suit: string]: { rank: string; suit: string }[] } = {}
     
-    const betResults: { [key: string]: { win: boolean; payout: number } } = {
-      'All Same Suit': {
-        win: allSuits.every(suit => suit === allSuits[0]),
-        payout: 15
-      },
-      'Player Same Suit': {
-        win: playerSuits.every(suit => suit === playerSuits[0]),
-        payout: 3
-      },
-      'Dealer Same Suit': {
-        win: dealerSuits.every(suit => suit === dealerSuits[0]),
-        payout: 3
-      },
-      'All Different Suits': {
-        win: new Set(allSuits).size === allSuits.length,
-        payout: 2
-      },
-      'Exactly 2 Suits': {
-        win: new Set(allSuits).size === 2,
-        payout: 1
-      },
-      'Exactly 3 Suits': {
-        win: new Set(allSuits).size === 3,
-        payout: 1
+    cards.forEach(card => {
+      if (!suitGroups[card.suit]) {
+        suitGroups[card.suit] = []
+      }
+      suitGroups[card.suit].push(card)
+    })
+
+    let longestFlush: { rank: string; suit: string }[] = []
+    for (const suit in suitGroups) {
+      if (suitGroups[suit].length > longestFlush.length) {
+        longestFlush = suitGroups[suit].sort((a, b) => getRankValue(b.rank) - getRankValue(a.rank))
       }
     }
 
-    return betResults
+    return longestFlush
+  }
+
+  const findLongestStraightFlush = (cards: { rank: string; suit: string }[]) => {
+    const suitGroups: { [suit: string]: { rank: string; suit: string }[] } = {}
+    
+    cards.forEach(card => {
+      if (!suitGroups[card.suit]) {
+        suitGroups[card.suit] = []
+      }
+      suitGroups[card.suit].push(card)
+    })
+
+    let longestStraightFlush: { rank: string; suit: string }[] = []
+
+    for (const suit in suitGroups) {
+      const suitCards = suitGroups[suit].sort((a, b) => getRankValue(a.rank) - getRankValue(b.rank))
+      
+      if (suitCards.length < 3) continue
+
+      // Find longest straight in this suit
+      for (let i = 0; i < suitCards.length; i++) {
+        const straight = [suitCards[i]]
+        let currentValue = getRankValue(suitCards[i].rank)
+        
+        for (let j = i + 1; j < suitCards.length; j++) {
+          const nextValue = getRankValue(suitCards[j].rank)
+          if (nextValue === currentValue + 1) {
+            straight.push(suitCards[j])
+            currentValue = nextValue
+          } else if (nextValue > currentValue + 1) {
+            break
+          }
+        }
+
+        if (straight.length > longestStraightFlush.length) {
+          longestStraightFlush = straight
+        }
+      }
+
+      // Check for A-2-3-4-5 straight (wheel)
+      const hasAce = suitCards.some(c => c.rank === 'A')
+      const hasTwo = suitCards.some(c => c.rank === '2')
+      const hasThree = suitCards.some(c => c.rank === '3')
+      const hasFour = suitCards.some(c => c.rank === '4')
+      const hasFive = suitCards.some(c => c.rank === '5')
+      
+      if (hasAce && hasTwo && hasThree && hasFour && hasFive) {
+        const wheelStraight = suitCards.filter(c => ['A', '2', '3', '4', '5'].includes(c.rank))
+        if (wheelStraight.length >= longestStraightFlush.length) {
+          longestStraightFlush = wheelStraight
+        }
+      }
+    }
+
+    return longestStraightFlush
+  }
+
+  const dealerQualifies = (dealerFlush: { rank: string; suit: string }[]): boolean => {
+    if (dealerFlush.length < 3) return false
+    
+    // Check if it's at least nine-high (9 or higher as the highest card)
+    const highestCard = Math.max(...dealerFlush.map(card => getRankValue(card.rank)))
+    return highestCard >= 9
+  }
+
+  const compareFlushes = (playerFlush: { rank: string; suit: string }[], dealerFlush: { rank: string; suit: string }[]): 'win' | 'lose' | 'push' => {
+    // First compare by number of cards
+    if (playerFlush.length > dealerFlush.length) return 'win'
+    if (playerFlush.length < dealerFlush.length) return 'lose'
+    
+    // Same number of cards, compare high cards
+    const playerSorted = playerFlush.sort((a, b) => getRankValue(b.rank) - getRankValue(a.rank))
+    const dealerSorted = dealerFlush.sort((a, b) => getRankValue(b.rank) - getRankValue(a.rank))
+    
+    for (let i = 0; i < playerSorted.length; i++) {
+      const playerValue = getRankValue(playerSorted[i].rank)
+      const dealerValue = getRankValue(dealerSorted[i].rank)
+      
+      if (playerValue > dealerValue) return 'win'
+      if (playerValue < dealerValue) return 'lose'
+    }
+    
+    return 'push'
+  }
+
+  const getOptimalPlayWager = (flushCards: number, anteAmount: number): number => {
+    if (flushCards >= 7) return anteAmount * 3
+    if (flushCards >= 5) return anteAmount * 2
+    if (flushCards >= 3) return anteAmount * 1
+    return 0 // Fold
+  }
+
+  const calculateFlushRushPayout = (flushCards: number): number => {
+    if (flushCards >= 7) return payoutConfig.flushRush.sevenCard
+    if (flushCards >= 6) return payoutConfig.flushRush.sixCard
+    if (flushCards >= 5) return payoutConfig.flushRush.fiveCard
+    if (flushCards >= 4) return payoutConfig.flushRush.fourCard
+    return 0
+  }
+
+  const calculateSuperFlushRushPayout = (straightFlushCards: number): number => {
+    if (straightFlushCards >= 7) return payoutConfig.superFlushRush.sevenCardStraight
+    if (straightFlushCards >= 6) return payoutConfig.superFlushRush.sixCardStraight
+    if (straightFlushCards >= 5) return payoutConfig.superFlushRush.fiveCardStraight
+    if (straightFlushCards >= 4) return payoutConfig.superFlushRush.fourCardStraight
+    if (straightFlushCards >= 3) return payoutConfig.superFlushRush.threeCardStraight
+    return 0
   }
 
   const simulateHands = async () => {
@@ -110,48 +257,117 @@ Available Bet Types:
     setProgress(0)
     
     const numHands = 1000
-    const betAmount = 10
+    const anteAmount = 10
+    const flushRushBet = 5
+    const superFlushRushBet = 5
     
-    const betTotals: { [key: string]: { totalBet: number; totalWon: number; handsWon: number; handsLost: number } } = {}
+    const betTotals: { [key: string]: { totalBet: number; totalWon: number; handsWon: number; handsLost: number } } = {
+      'Base Game (Ante + Play)': { totalBet: 0, totalWon: 0, handsWon: 0, handsLost: 0 },
+      'Flush Rush Bonus': { totalBet: 0, totalWon: 0, handsWon: 0, handsLost: 0 },
+      'Super Flush Rush Bonus': { totalBet: 0, totalWon: 0, handsWon: 0, handsLost: 0 }
+    }
+    
     const handResults: HandResult[] = []
-
-    const betTypes = ['All Same Suit', 'Player Same Suit', 'Dealer Same Suit', 'All Different Suits', 'Exactly 2 Suits', 'Exactly 3 Suits']
-    betTypes.forEach(bet => {
-      betTotals[bet] = { totalBet: 0, totalWon: 0, handsWon: 0, handsLost: 0 }
-    })
 
     for (let hand = 0; hand < numHands; hand++) {
       const deck = shuffleDeck(createDeck())
       
-      const playerCards = [deck[0], deck[1]]
-      const dealerCards = [deck[2], deck[3]]
+      // Deal 7 cards to player and 7 to dealer
+      const playerCards = deck.slice(0, 7)
+      const dealerCards = deck.slice(7, 14)
       
-      const handResult = evaluateHand(playerCards, dealerCards)
+      // Find best flushes
+      const playerBestFlush = findLongestFlush(playerCards)
+      const dealerBestFlush = findLongestFlush(dealerCards)
+      
+      // Find straight flushes for bonus bets
+      const playerStraightFlush = findLongestStraightFlush(playerCards)
+      
+      // Determine play wager based on player's flush cards
+      const playWager = getOptimalPlayWager(playerBestFlush.length, anteAmount)
+      const shouldFold = playWager === 0
+      
+      // Evaluate dealer qualification
+      const dealerQualified = dealerQualifies(dealerBestFlush)
+      
+      let baseGameResult: 'win' | 'lose' | 'push' = 'lose'
+      let baseGamePayout = 0
+      
+      if (shouldFold) {
+        // Player folds - loses ante only
+        baseGameResult = 'lose'
+        baseGamePayout = 0
+        betTotals['Base Game (Ante + Play)'].totalBet += anteAmount
+        betTotals['Base Game (Ante + Play)'].handsLost++
+      } else {
+        // Player plays
+        const totalWager = anteAmount + playWager
+        betTotals['Base Game (Ante + Play)'].totalBet += totalWager
+        
+        if (!dealerQualified) {
+          // Dealer doesn't qualify - ante pays even money, play pushes
+          baseGameResult = 'win'
+          baseGamePayout = anteAmount // Just the ante back
+          betTotals['Base Game (Ante + Play)'].totalWon += anteAmount
+          betTotals['Base Game (Ante + Play)'].handsWon++
+        } else {
+          // Dealer qualifies - compare hands
+          const comparison = compareFlushes(playerBestFlush, dealerBestFlush)
+          
+          if (comparison === 'win') {
+            baseGameResult = 'win'
+            baseGamePayout = totalWager * 2 // Both ante and play pay even money
+            betTotals['Base Game (Ante + Play)'].totalWon += baseGamePayout
+            betTotals['Base Game (Ante + Play)'].handsWon++
+          } else if (comparison === 'push') {
+            baseGameResult = 'push'
+            baseGamePayout = totalWager // Get wager back
+            betTotals['Base Game (Ante + Play)'].totalWon += baseGamePayout
+          } else {
+            baseGameResult = 'lose'
+            baseGamePayout = 0
+            betTotals['Base Game (Ante + Play)'].handsLost++
+          }
+        }
+      }
+      
+      // Evaluate bonus bets
+      const flushRushMultiplier = calculateFlushRushPayout(playerBestFlush.length)
+      const flushRushPayout = flushRushMultiplier > 0 ? flushRushBet * flushRushMultiplier : 0
+      
+      betTotals['Flush Rush Bonus'].totalBet += flushRushBet
+      if (flushRushPayout > 0) {
+        betTotals['Flush Rush Bonus'].totalWon += flushRushPayout
+        betTotals['Flush Rush Bonus'].handsWon++
+      } else {
+        betTotals['Flush Rush Bonus'].handsLost++
+      }
+      
+      const superFlushRushMultiplier = calculateSuperFlushRushPayout(playerStraightFlush.length)
+      const superFlushRushPayout = superFlushRushMultiplier > 0 ? superFlushRushBet * superFlushRushMultiplier : 0
+      
+      betTotals['Super Flush Rush Bonus'].totalBet += superFlushRushBet
+      if (superFlushRushPayout > 0) {
+        betTotals['Super Flush Rush Bonus'].totalWon += superFlushRushPayout
+        betTotals['Super Flush Rush Bonus'].handsWon++
+      } else {
+        betTotals['Super Flush Rush Bonus'].handsLost++
+      }
       
       const handDetail: HandResult = {
         handNumber: hand + 1,
-        playerCards,
-        dealerCards,
-        results: {}
-      }
-
-      for (const betType of betTypes) {
-        const result = handResult[betType]
-        const payout = result.win ? betAmount * result.payout : 0
-        
-        betTotals[betType].totalBet += betAmount
-        betTotals[betType].totalWon += payout
-        
-        if (result.win) {
-          betTotals[betType].handsWon++
-        } else {
-          betTotals[betType].handsLost++
-        }
-
-        handDetail.results[betType] = {
-          bet: betAmount,
-          payout: payout
-        }
+        playerCards: playerCards.map(c => `${c.rank}${c.suit}`),
+        dealerCards: dealerCards.map(c => `${c.rank}${c.suit}`),
+        playerFlushCards: playerBestFlush.length,
+        dealerFlushCards: dealerBestFlush.length,
+        playerBestFlush: playerBestFlush.map(c => `${c.rank}${c.suit}`),
+        dealerBestFlush: dealerBestFlush.map(c => `${c.rank}${c.suit}`),
+        dealerQualifies: dealerQualified,
+        baseGameResult,
+        playWager,
+        baseGamePayout,
+        flushRushPayout,
+        superFlushRushPayout
       }
 
       handResults.push(handDetail)
@@ -163,9 +379,10 @@ Available Bet Types:
       }
     }
 
-    const simulationResults: SimulationResult[] = betTypes.map(betType => {
+    const simulationResults: SimulationResult[] = Object.keys(betTotals).map(betType => {
       const data = betTotals[betType]
       const expectedReturn = ((data.totalWon - data.totalBet) / data.totalBet) * 100
+      const winRate = (data.handsWon / (data.handsWon + data.handsLost)) * 100
       
       return {
         betType,
@@ -173,7 +390,8 @@ Available Bet Types:
         totalWon: data.totalWon,
         expectedReturn,
         handsWon: data.handsWon,
-        handsLost: data.handsLost
+        handsLost: data.handsLost,
+        winRate
       }
     })
 
@@ -193,11 +411,21 @@ Available Bet Types:
     )
   }
 
+  const updatePayoutConfig = (category: 'flushRush' | 'superFlushRush', key: string, value: number) => {
+    setPayoutConfig(prev => ({
+      ...prev,
+      [category]: {
+        ...prev[category],
+        [key]: value
+      }
+    }))
+  }
+
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="text-center space-y-2">
-          <h1 className="text-4xl font-bold text-foreground">I Love Suits Simulator</h1>
+          <h1 className="text-4xl font-bold text-foreground">I Luv Suits Poker Simulator</h1>
           <p className="text-muted-foreground">Statistical analysis of 1000 hands with expected return calculations</p>
         </div>
 
@@ -245,17 +473,28 @@ Available Bet Types:
                 </div>
               )}
 
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="show-details"
-                  checked={showDetails}
-                  onChange={(e) => setShowDetails(e.target.checked)}
-                  className="rounded"
-                />
-                <label htmlFor="show-details" className="text-sm">
-                  Show hand details
-                </label>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="show-details"
+                    checked={showDetails}
+                    onChange={(e) => setShowDetails(e.target.checked)}
+                    className="rounded"
+                  />
+                  <label htmlFor="show-details" className="text-sm">
+                    Show hand details
+                  </label>
+                </div>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowConfig(!showConfig)}
+                >
+                  <Gear className="w-4 h-4 mr-2" />
+                  Payouts
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -283,11 +522,116 @@ Available Bet Types:
           </Card>
         </div>
 
+        {showConfig && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Payout Configuration</CardTitle>
+              <CardDescription>Adjust bonus bet payouts (odds-to-1)</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div>
+                <h4 className="font-medium mb-3">Flush Rush Bonus</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="flush-7">7 Card Flush</Label>
+                    <Input
+                      id="flush-7"
+                      type="number"
+                      value={payoutConfig.flushRush.sevenCard}
+                      onChange={(e) => updatePayoutConfig('flushRush', 'sevenCard', parseInt(e.target.value) || 0)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="flush-6">6 Card Flush</Label>
+                    <Input
+                      id="flush-6"
+                      type="number"
+                      value={payoutConfig.flushRush.sixCard}
+                      onChange={(e) => updatePayoutConfig('flushRush', 'sixCard', parseInt(e.target.value) || 0)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="flush-5">5 Card Flush</Label>
+                    <Input
+                      id="flush-5"
+                      type="number"
+                      value={payoutConfig.flushRush.fiveCard}
+                      onChange={(e) => updatePayoutConfig('flushRush', 'fiveCard', parseInt(e.target.value) || 0)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="flush-4">4 Card Flush</Label>
+                    <Input
+                      id="flush-4"
+                      type="number"
+                      value={payoutConfig.flushRush.fourCard}
+                      onChange={(e) => updatePayoutConfig('flushRush', 'fourCard', parseInt(e.target.value) || 0)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div>
+                <h4 className="font-medium mb-3">Super Flush Rush Bonus</h4>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="straight-7">7 Card Straight Flush</Label>
+                    <Input
+                      id="straight-7"
+                      type="number"
+                      value={payoutConfig.superFlushRush.sevenCardStraight}
+                      onChange={(e) => updatePayoutConfig('superFlushRush', 'sevenCardStraight', parseInt(e.target.value) || 0)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="straight-6">6 Card Straight Flush</Label>
+                    <Input
+                      id="straight-6"
+                      type="number"
+                      value={payoutConfig.superFlushRush.sixCardStraight}
+                      onChange={(e) => updatePayoutConfig('superFlushRush', 'sixCardStraight', parseInt(e.target.value) || 0)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="straight-5">5 Card Straight Flush</Label>
+                    <Input
+                      id="straight-5"
+                      type="number"
+                      value={payoutConfig.superFlushRush.fiveCardStraight}
+                      onChange={(e) => updatePayoutConfig('superFlushRush', 'fiveCardStraight', parseInt(e.target.value) || 0)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="straight-4">4 Card Straight Flush</Label>
+                    <Input
+                      id="straight-4"
+                      type="number"
+                      value={payoutConfig.superFlushRush.fourCardStraight}
+                      onChange={(e) => updatePayoutConfig('superFlushRush', 'fourCardStraight', parseInt(e.target.value) || 0)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="straight-3">3 Card Straight Flush</Label>
+                    <Input
+                      id="straight-3"
+                      type="number"
+                      value={payoutConfig.superFlushRush.threeCardStraight}
+                      onChange={(e) => updatePayoutConfig('superFlushRush', 'threeCardStraight', parseInt(e.target.value) || 0)}
+                    />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {results.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle>Expected Return Analysis</CardTitle>
-              <CardDescription>Statistical results from 1000 hands ($10 bet per hand)</CardDescription>
+              <CardDescription>Statistical results from 1000 hands (Base: $10 Ante, Bonus: $5 each)</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
@@ -312,7 +656,7 @@ Available Bet Types:
                       </TableCell>
                       <TableCell className="text-right">
                         <Badge variant="outline">
-                          {((result.handsWon / 1000) * 100).toFixed(1)}%
+                          {result.winRate.toFixed(1)}%
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
@@ -338,19 +682,39 @@ Available Bet Types:
                   <div key={hand.handNumber} className="border rounded-lg p-4 space-y-2">
                     <div className="flex justify-between items-center">
                       <h4 className="font-medium">Hand #{hand.handNumber}</h4>
-                      <div className="text-sm text-muted-foreground">
-                        Player: {hand.playerCards.join(', ')} | Dealer: {hand.dealerCards.join(', ')}
+                      <Badge variant={hand.baseGameResult === 'win' ? 'default' : 'secondary'}>
+                        {hand.baseGameResult.toUpperCase()}
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <span className="font-medium">Player ({hand.playerFlushCards} flush):</span>
+                        <div className="text-xs text-muted-foreground">{hand.playerCards.join(', ')}</div>
+                      </div>
+                      <div>
+                        <span className="font-medium">Dealer ({hand.dealerFlushCards} flush):</span>
+                        <div className="text-xs text-muted-foreground">{hand.dealerCards.join(', ')}</div>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
-                      {Object.entries(hand.results).map(([betType, result]) => (
-                        <div key={betType} className="flex justify-between">
-                          <span>{betType}:</span>
-                          <span className={result.payout > 0 ? 'text-green-600' : 'text-red-600'}>
-                            ${result.payout > 0 ? `+${result.payout}` : `-${result.bet}`}
-                          </span>
-                        </div>
-                      ))}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+                      <div className="flex justify-between">
+                        <span>Base Game:</span>
+                        <span className={hand.baseGamePayout > 0 ? 'text-green-600' : 'text-red-600'}>
+                          ${hand.baseGamePayout > 0 ? `+${hand.baseGamePayout}` : `${hand.baseGamePayout}`}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Flush Rush:</span>
+                        <span className={hand.flushRushPayout > 0 ? 'text-green-600' : 'text-red-600'}>
+                          ${hand.flushRushPayout > 0 ? `+${hand.flushRushPayout}` : '-5'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Super Flush:</span>
+                        <span className={hand.superFlushRushPayout > 0 ? 'text-green-600' : 'text-red-600'}>
+                          ${hand.superFlushRushPayout > 0 ? `+${hand.superFlushRushPayout}` : '-5'}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 ))}
