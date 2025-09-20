@@ -569,107 +569,83 @@ Bonus Bets (optional):
           </CardContent>
         </Card>
 
-        <div className="grid gap-6 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Simulation Control</CardTitle>
-              <CardDescription>Configure and run simulation to analyze betting returns</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="num-hands">Number of Hands</Label>
-                  <Input
-                    id="num-hands"
-                    type="number"
-                    min="1000"
-                    max="10000000"
-                    step="1000"
-                    value={numHands}
-                    onChange={(e) => setNumHands(parseInt(e.target.value) || 1000000)}
-                    disabled={isSimulating}
-                  />
-                  <p className="text-xs text-muted-foreground">1,000 - 10,000,000 hands</p>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="min-flush-rank">Min 3-Card Flush High Card</Label>
-                  <select
-                    id="min-flush-rank"
-                    value={minThreeCardFlushRank}
-                    onChange={(e) => setMinThreeCardFlushRank(parseInt(e.target.value))}
-                    disabled={isSimulating}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <option value={9}>9 (Current Default)</option>
-                    <option value={10}>10</option>
-                    <option value={11}>Jack</option>
-                    <option value={12}>Queen</option>
-                    <option value={13}>King</option>
-                    <option value={14}>Ace</option>
-                  </select>
-                  <p className="text-xs text-muted-foreground">Fold 3-card flush if high card is lower</p>
-                </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Simulation Control</CardTitle>
+            <CardDescription>Configure and run simulation to analyze betting returns</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="num-hands">Number of Hands</Label>
+                <Input
+                  id="num-hands"
+                  type="number"
+                  min="1000"
+                  max="10000000"
+                  step="1000"
+                  value={numHands}
+                  onChange={(e) => setNumHands(parseInt(e.target.value) || 1000000)}
+                  disabled={isSimulating}
+                />
+                <p className="text-xs text-muted-foreground">1,000 - 10,000,000 hands</p>
               </div>
               
-              <Button 
-                onClick={simulateHands} 
-                disabled={isSimulating}
-                className="w-full"
-                size="lg"
-              >
-                {isSimulating ? (
-                  <>Simulating... {progress.toFixed(0)}%</>
-                ) : (
-                  <>
-                    <Play className="w-4 h-4 mr-2" />
-                    Run Simulation
-                  </>
-                )}
-              </Button>
-              
-              {isSimulating && (
-                <div className="space-y-2">
-                  <Progress value={progress} className="w-full" />
-                  <p className="text-sm text-muted-foreground text-center">
-                    Hand {Math.floor(progress * numHands / 100).toLocaleString()} of {numHands.toLocaleString()}
-                  </p>
-                </div>
-              )}
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowConfig(!showConfig)}
-              >
-                <Gear className="w-4 h-4 mr-2" />
-                Payouts
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Simulation Status</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {results.length > 0 ? (
-                <Alert>
-                  <AlertDescription>
-                    Simulation complete! Analyzed {numHands.toLocaleString()} hands across {results.length} bet types.
-                    View the expected returns below.
-                  </AlertDescription>
-                </Alert>
+              <div className="space-y-2">
+                <Label htmlFor="min-flush-rank">Min 3-Card Flush High Card</Label>
+                <select
+                  id="min-flush-rank"
+                  value={minThreeCardFlushRank}
+                  onChange={(e) => setMinThreeCardFlushRank(parseInt(e.target.value))}
+                  disabled={isSimulating}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value={9}>9 (Current Default)</option>
+                  <option value={10}>10</option>
+                  <option value={11}>Jack</option>
+                  <option value={12}>Queen</option>
+                  <option value={13}>King</option>
+                  <option value={14}>Ace</option>
+                </select>
+                <p className="text-xs text-muted-foreground">Fold 3-card flush if high card is lower</p>
+              </div>
+            </div>
+            
+            <Button 
+              onClick={simulateHands} 
+              disabled={isSimulating}
+              className="w-full"
+              size="lg"
+            >
+              {isSimulating ? (
+                <>Simulating... {progress.toFixed(0)}%</>
               ) : (
-                <Alert>
-                  <AlertDescription>
-                    No simulation data available. Click "Run Simulation" to analyze {numHands.toLocaleString()} hands.
-                  </AlertDescription>
-                </Alert>
+                <>
+                  <Play className="w-4 h-4 mr-2" />
+                  Run Simulation
+                </>
               )}
-            </CardContent>
-          </Card>
-        </div>
+            </Button>
+            
+            {isSimulating && (
+              <div className="space-y-2">
+                <Progress value={progress} className="w-full" />
+                <p className="text-sm text-muted-foreground text-center">
+                  Hand {Math.floor(progress * numHands / 100).toLocaleString()} of {numHands.toLocaleString()}
+                </p>
+              </div>
+            )}
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowConfig(!showConfig)}
+            >
+              <Gear className="w-4 h-4 mr-2" />
+              Payouts
+            </Button>
+          </CardContent>
+        </Card>
 
         {showConfig && (
           <Card>
