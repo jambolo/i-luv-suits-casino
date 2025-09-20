@@ -68,6 +68,8 @@ function App() {
   const [showDetails, setShowDetails] = useState(false)
   const [showConfig, setShowConfig] = useState(false)
   const [threeCardFlushStats, setThreeCardFlushStats] = useState<ThreeCardFlushStats[]>([])
+  const [numHands, setNumHands] = useState(1000)
+  const [minThreeCardFlushRank, setMinThreeCardFlushRank] = useState(9) // Minimum high card value for 3-card flush
   
   const [payoutConfig, setPayoutConfig] = useState<PayoutConfig>({
     flushRush: {
@@ -85,6 +87,13 @@ function App() {
     }
   })
 
+  const getMinFlushDisplayText = () => {
+    if (minThreeCardFlushRank >= 11) {
+      return ['Jack', 'Queen', 'King', 'Ace'][minThreeCardFlushRank - 11]
+    }
+    return minThreeCardFlushRank.toString()
+  }
+
   const gameRules = `I Luv Suits Poker is a seven (7) card poker game that lets players play against the dealer using seven (7) cards per player. The goal is to get a higher ranking flush with more flush cards than the dealer. There is a qualifier of a three (3) card nine-high flush for the dealer.
 
 Game Rules:
@@ -92,6 +101,7 @@ Game Rules:
 • Player can make a Play wager of 1-3x their Ante depending on how many flush cards they have:
   - More flush cards = higher play wager (1x to 3x Ante)
   - Player may fold their hand instead
+• Current Strategy: Only play 3-card flush if high card is ${getMinFlushDisplayText()} or higher
 • Dealer needs 3-card nine-high flush minimum to qualify
 • If player's hand beats dealer's qualifying hand, player wins
 • If dealer doesn't qualify: Ante pays even money, Play pushes
@@ -241,9 +251,9 @@ Bonus Bets (optional):
     if (flushCards >= 6) return anteAmount * 3  // Strong flush - max bet
     if (flushCards >= 4) return anteAmount * 2  // Good flush - moderate bet
     if (flushCards === 3) {
-      // Only play 3-card flush if high card is 9 or higher
-      if (highCardValue >= 9) return anteAmount * 1
-      return 0 // Fold if high card is less than 9
+      // Only play 3-card flush if high card meets minimum threshold
+      if (highCardValue >= minThreeCardFlushRank) return anteAmount * 1
+      return 0 // Fold if high card is less than minimum
     }
     return 0 // Fold with 0-2 flush cards
   }
@@ -269,7 +279,6 @@ Bonus Bets (optional):
     setIsSimulating(true)
     setProgress(0)
     
-    const numHands = 1000
     const anteAmount = 1  // Changed from $10 to $1
     const flushRushBet = 1  // Changed from $5 to $1
     const superFlushRushBet = 1  // Changed from $5 to $1
@@ -287,7 +296,9 @@ Bonus Bets (optional):
       '9': { wins: 0, losses: 0, total: 0 },
       '10': { wins: 0, losses: 0, total: 0 },
       'J': { wins: 0, losses: 0, total: 0 },
-      'Q': { wins: 0, losses: 0, total: 0 }
+      'Q': { wins: 0, losses: 0, total: 0 },
+      'K': { wins: 0, losses: 0, total: 0 },
+      'A': { wins: 0, losses: 0, total: 0 }
     }
 
     for (let hand = 0; hand < numHands; hand++) {
@@ -312,10 +323,10 @@ Bonus Bets (optional):
       const playWager = getOptimalPlayWager(playerBestFlush.length, highCardValue, anteAmount)
       const shouldFold = playWager === 0
       
-      // Track 3-card flush statistics for high cards 9, 10, J, Q
+      // Track 3-card flush statistics for high cards 9+
       if (playerBestFlush.length === 3) {
         const highCard = playerBestFlush.find(card => getRankValue(card.rank) === highCardValue)?.rank
-        if (highCard && ['9', '10', 'J', 'Q'].includes(highCard)) {
+        if (highCard && ['9', '10', 'J', 'Q', 'K', 'A'].includes(highCard)) {
           threeCardStats[highCard].total++
         }
       }
@@ -347,7 +358,7 @@ Bonus Bets (optional):
           // Track 3-card flush win for stats
           if (playerBestFlush.length === 3) {
             const highCard = playerBestFlush.find(card => getRankValue(card.rank) === highCardValue)?.rank
-            if (highCard && ['9', '10', 'J', 'Q'].includes(highCard)) {
+            if (highCard && ['9', '10', 'J', 'Q', 'K', 'A'].includes(highCard)) {
               threeCardStats[highCard].wins++
             }
           }
@@ -364,7 +375,7 @@ Bonus Bets (optional):
             // Track 3-card flush win for stats
             if (playerBestFlush.length === 3) {
               const highCard = playerBestFlush.find(card => getRankValue(card.rank) === highCardValue)?.rank
-              if (highCard && ['9', '10', 'J', 'Q'].includes(highCard)) {
+              if (highCard && ['9', '10', 'J', 'Q', 'K', 'A'].includes(highCard)) {
                 threeCardStats[highCard].wins++
               }
             }
@@ -380,7 +391,7 @@ Bonus Bets (optional):
             // Track 3-card flush loss for stats
             if (playerBestFlush.length === 3) {
               const highCard = playerBestFlush.find(card => getRankValue(card.rank) === highCardValue)?.rank
-              if (highCard && ['9', '10', 'J', 'Q'].includes(highCard)) {
+              if (highCard && ['9', '10', 'J', 'Q', 'K', 'A'].includes(highCard)) {
                 threeCardStats[highCard].losses++
               }
             }
@@ -431,7 +442,9 @@ Bonus Bets (optional):
       
       setProgress(((hand + 1) / numHands) * 100)
       
-      if (hand % 50 === 0) {
+      // Update UI less frequently for performance
+      const updateFrequency = Math.max(1, Math.floor(numHands / 50))
+      if (hand % updateFrequency === 0) {
         await new Promise(resolve => setTimeout(resolve, 10))
       }
     }
@@ -515,9 +528,45 @@ Bonus Bets (optional):
           <Card>
             <CardHeader>
               <CardTitle>Simulation Control</CardTitle>
-              <CardDescription>Run 1000 hands to analyze betting returns</CardDescription>
+              <CardDescription>Configure and run simulation to analyze betting returns</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="num-hands">Number of Hands</Label>
+                  <Input
+                    id="num-hands"
+                    type="number"
+                    min="100"
+                    max="10000"
+                    step="100"
+                    value={numHands}
+                    onChange={(e) => setNumHands(parseInt(e.target.value) || 1000)}
+                    disabled={isSimulating}
+                  />
+                  <p className="text-xs text-muted-foreground">100 - 10,000 hands</p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="min-flush-rank">Min 3-Card Flush High Card</Label>
+                  <select
+                    id="min-flush-rank"
+                    value={minThreeCardFlushRank}
+                    onChange={(e) => setMinThreeCardFlushRank(parseInt(e.target.value))}
+                    disabled={isSimulating}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <option value={9}>9 (Current Default)</option>
+                    <option value={10}>10</option>
+                    <option value={11}>Jack</option>
+                    <option value={12}>Queen</option>
+                    <option value={13}>King</option>
+                    <option value={14}>Ace</option>
+                  </select>
+                  <p className="text-xs text-muted-foreground">Fold 3-card flush if high card is lower</p>
+                </div>
+              </div>
+              
               <Button 
                 onClick={simulateHands} 
                 disabled={isSimulating}
@@ -538,7 +587,7 @@ Bonus Bets (optional):
                 <div className="space-y-2">
                   <Progress value={progress} className="w-full" />
                   <p className="text-sm text-muted-foreground text-center">
-                    Hand {Math.floor(progress * 10)} of 1000
+                    Hand {Math.floor(progress * numHands / 100)} of {numHands}
                   </p>
                 </div>
               )}
@@ -584,7 +633,7 @@ Bonus Bets (optional):
               ) : (
                 <Alert>
                   <AlertDescription>
-                    No simulation data available. Click "Run Simulation" to analyze 1000 hands.
+                    No simulation data available. Click "Run Simulation" to analyze {numHands} hands.
                   </AlertDescription>
                 </Alert>
               )}
@@ -701,7 +750,7 @@ Bonus Bets (optional):
           <Card>
             <CardHeader>
               <CardTitle>Expected Return Analysis</CardTitle>
-              <CardDescription>Statistical results from 1000 hands ($1 Ante, 1-3x Play, $1 Bonus bets)</CardDescription>
+              <CardDescription>Statistical results from {numHands} hands ($1 Ante, 1-3x Play, $1 Bonus bets)</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
@@ -722,7 +771,7 @@ Bonus Bets (optional):
                       <TableCell className="text-right">${result.totalBet}</TableCell>
                       <TableCell className="text-right">${result.totalWon}</TableCell>
                       <TableCell className="text-right">
-                        {result.handsWon} / 1000
+                        {result.handsWon} / {numHands}
                       </TableCell>
                       <TableCell className="text-right">
                         <Badge variant="outline">
@@ -744,7 +793,7 @@ Bonus Bets (optional):
           <Card>
             <CardHeader>
               <CardTitle>3-Card Flush Win Rate by High Card</CardTitle>
-              <CardDescription>Performance analysis for 3-card flush hands when playing (high card 9+)</CardDescription>
+              <CardDescription>Performance analysis for 3-card flush hands when playing (high card {minThreeCardFlushRank >= 11 ? ['J', 'Q', 'K', 'A'][minThreeCardFlushRank - 11] : minThreeCardFlushRank}+)</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
@@ -775,7 +824,7 @@ Bonus Bets (optional):
               </Table>
               {threeCardFlushStats.every(stat => stat.totalHands === 0) && (
                 <div className="text-center text-muted-foreground py-4">
-                  No 3-card flush hands with high cards 9, 10, J, or Q were dealt in this simulation.
+                  No 3-card flush hands with high cards {minThreeCardFlushRank >= 11 ? ['J', 'Q', 'K', 'A'][minThreeCardFlushRank - 11] : minThreeCardFlushRank}+ were dealt in this simulation.
                 </div>
               )}
             </CardContent>
