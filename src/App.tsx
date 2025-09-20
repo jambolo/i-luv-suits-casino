@@ -37,7 +37,7 @@ interface SimulationResult {
 }
 
 interface ThreeCardFlushStats {
-  highCard: string
+  highCards: string
   totalHands: number
   wins: number
   losses: number
@@ -291,19 +291,8 @@ Bonus Bets (optional):
     
     const handResults: HandResult[] = []
     
-    // Track 3-card flush stats by high card (only for cards meeting minimum threshold)
+    // Track 3-card flush stats by two highest cards (only for cards meeting minimum threshold)
     const threeCardStats: { [key: string]: { wins: number; losses: number; total: number } } = {}
-    
-    // Initialize stats only for high cards that meet the minimum threshold
-    const highCardOrder = ['9', '10', 'J', 'Q', 'K', 'A']
-    const minThresholdIndex = highCardOrder.findIndex(card => {
-      const cardValue = card === 'J' ? 11 : card === 'Q' ? 12 : card === 'K' ? 13 : card === 'A' ? 14 : parseInt(card)
-      return cardValue >= minThreeCardFlushRank
-    })
-    
-    for (let i = minThresholdIndex; i < highCardOrder.length; i++) {
-      threeCardStats[highCardOrder[i]] = { wins: 0, losses: 0, total: 0 }
-    }
 
     for (let hand = 0; hand < numHands; hand++) {
       const deck = shuffleDeck(createDeck())
@@ -327,11 +316,20 @@ Bonus Bets (optional):
       const playWager = getOptimalPlayWager(playerBestFlush.length, highCardValue, anteAmount)
       const shouldFold = playWager === 0
       
-      // Track 3-card flush statistics for high cards that meet minimum threshold
+      // Track 3-card flush statistics for two highest cards that meet minimum threshold
       if (playerBestFlush.length === 3) {
-        const highCard = playerBestFlush.find(card => getRankValue(card.rank) === highCardValue)?.rank
-        if (highCard && highCardValue >= minThreeCardFlushRank && threeCardStats[highCard]) {
-          threeCardStats[highCard].total++
+        // Get two highest cards
+        const sortedFlush = [...playerBestFlush].sort((a, b) => getRankValue(b.rank) - getRankValue(a.rank))
+        const highestCard = sortedFlush[0]
+        const secondHighestCard = sortedFlush[1]
+        const highestValue = getRankValue(highestCard.rank)
+        
+        if (highestValue >= minThreeCardFlushRank) {
+          const twoHighestKey = `${highestCard.rank}-${secondHighestCard.rank}`
+          if (!threeCardStats[twoHighestKey]) {
+            threeCardStats[twoHighestKey] = { wins: 0, losses: 0, total: 0 }
+          }
+          threeCardStats[twoHighestKey].total++
         }
       }
       
@@ -361,9 +359,16 @@ Bonus Bets (optional):
           
           // Track 3-card flush win for stats
           if (playerBestFlush.length === 3) {
-            const highCard = playerBestFlush.find(card => getRankValue(card.rank) === highCardValue)?.rank
-            if (highCard && highCardValue >= minThreeCardFlushRank && threeCardStats[highCard]) {
-              threeCardStats[highCard].wins++
+            const sortedFlush = [...playerBestFlush].sort((a, b) => getRankValue(b.rank) - getRankValue(a.rank))
+            const highestCard = sortedFlush[0]
+            const secondHighestCard = sortedFlush[1]
+            const highestValue = getRankValue(highestCard.rank)
+            
+            if (highestValue >= minThreeCardFlushRank) {
+              const twoHighestKey = `${highestCard.rank}-${secondHighestCard.rank}`
+              if (threeCardStats[twoHighestKey]) {
+                threeCardStats[twoHighestKey].wins++
+              }
             }
           }
         } else {
@@ -378,9 +383,16 @@ Bonus Bets (optional):
             
             // Track 3-card flush win for stats
             if (playerBestFlush.length === 3) {
-              const highCard = playerBestFlush.find(card => getRankValue(card.rank) === highCardValue)?.rank
-              if (highCard && highCardValue >= minThreeCardFlushRank && threeCardStats[highCard]) {
-                threeCardStats[highCard].wins++
+              const sortedFlush = [...playerBestFlush].sort((a, b) => getRankValue(b.rank) - getRankValue(a.rank))
+              const highestCard = sortedFlush[0]
+              const secondHighestCard = sortedFlush[1]
+              const highestValue = getRankValue(highestCard.rank)
+              
+              if (highestValue >= minThreeCardFlushRank) {
+                const twoHighestKey = `${highestCard.rank}-${secondHighestCard.rank}`
+                if (threeCardStats[twoHighestKey]) {
+                  threeCardStats[twoHighestKey].wins++
+                }
               }
             }
           } else if (comparison === 'push') {
@@ -394,9 +406,16 @@ Bonus Bets (optional):
             
             // Track 3-card flush loss for stats
             if (playerBestFlush.length === 3) {
-              const highCard = playerBestFlush.find(card => getRankValue(card.rank) === highCardValue)?.rank
-              if (highCard && highCardValue >= minThreeCardFlushRank && threeCardStats[highCard]) {
-                threeCardStats[highCard].losses++
+              const sortedFlush = [...playerBestFlush].sort((a, b) => getRankValue(b.rank) - getRankValue(a.rank))
+              const highestCard = sortedFlush[0]
+              const secondHighestCard = sortedFlush[1]
+              const highestValue = getRankValue(highestCard.rank)
+              
+              if (highestValue >= minThreeCardFlushRank) {
+                const twoHighestKey = `${highestCard.rank}-${secondHighestCard.rank}`
+                if (threeCardStats[twoHighestKey]) {
+                  threeCardStats[twoHighestKey].losses++
+                }
               }
             }
           }
@@ -470,16 +489,32 @@ Bonus Bets (optional):
     })
 
     // Compile 3-card flush statistics
-    const threeCardFlushResults: ThreeCardFlushStats[] = Object.keys(threeCardStats).map(highCard => {
-      const stats = threeCardStats[highCard]
-      return {
-        highCard,
-        totalHands: stats.total,
-        wins: stats.wins,
-        losses: stats.losses,
-        winRate: stats.total > 0 ? (stats.wins / (stats.wins + stats.losses)) * 100 : 0
-      }
-    })
+    const threeCardFlushResults: ThreeCardFlushStats[] = Object.keys(threeCardStats)
+      .sort((a, b) => {
+        // Sort by first card value descending, then by second card value descending
+        const [aFirst, aSecond] = a.split('-')
+        const [bFirst, bSecond] = b.split('-')
+        const aFirstValue = getRankValue(aFirst)
+        const bFirstValue = getRankValue(bFirst)
+        
+        if (aFirstValue !== bFirstValue) {
+          return bFirstValue - aFirstValue
+        }
+        
+        const aSecondValue = getRankValue(aSecond)
+        const bSecondValue = getRankValue(bSecond)
+        return bSecondValue - aSecondValue
+      })
+      .map(highCards => {
+        const stats = threeCardStats[highCards]
+        return {
+          highCards,
+          totalHands: stats.total,
+          wins: stats.wins,
+          losses: stats.losses,
+          winRate: stats.total > 0 ? (stats.wins / (stats.wins + stats.losses)) * 100 : 0
+        }
+      })
 
     setResults(simulationResults)
     setHandDetails(handResults)
@@ -796,14 +831,14 @@ Bonus Bets (optional):
         {threeCardFlushStats.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>3-Card Flush Win Rate by High Card</CardTitle>
+              <CardTitle>3-Card Flush Win Rate by Two Highest Cards</CardTitle>
               <CardDescription>Performance analysis for 3-card flush hands when playing (high card {getMinFlushDisplayText()}+)</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>High Card</TableHead>
+                    <TableHead>Two Highest Cards</TableHead>
                     <TableHead className="text-right">Total Hands</TableHead>
                     <TableHead className="text-right">Wins</TableHead>
                     <TableHead className="text-right">Losses</TableHead>
@@ -812,8 +847,8 @@ Bonus Bets (optional):
                 </TableHeader>
                 <TableBody>
                   {threeCardFlushStats.filter(stat => stat.totalHands > 0).map((stat) => (
-                    <TableRow key={stat.highCard}>
-                      <TableCell className="font-medium">{stat.highCard}</TableCell>
+                    <TableRow key={stat.highCards}>
+                      <TableCell className="font-medium">{stat.highCards}</TableCell>
                       <TableCell className="text-right">{stat.totalHands}</TableCell>
                       <TableCell className="text-right">{stat.wins}</TableCell>
                       <TableCell className="text-right">{stat.losses}</TableCell>
