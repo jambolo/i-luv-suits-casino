@@ -1,10 +1,8 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
@@ -56,7 +54,6 @@ interface HandDistributionStats {
 
 function App() {
   const [isSimulating, setIsSimulating] = useState(false)
-  const [progress, setProgress] = useState(0)
   const [results, setResults] = useState<SimulationResult[]>([])
 
 
@@ -272,19 +269,16 @@ Bonus Bets (optional):
 
   const simulateHands = async () => {
     setIsSimulating(true)
-    setProgress(0)
     
-    const anteAmount = 1  // Changed from $10 to $1
-    const flushRushBet = 1  // Changed from $5 to $1
-    const superFlushRushBet = 1  // Changed from $5 to $1
+    const anteAmount = 1
+    const flushRushBet = 1
+    const superFlushRushBet = 1
     
     const betTotals: { [key: string]: { totalBet: number; totalWon: number; handsWon: number; handsLost: number } } = {
       'Base Game (Ante + Play)': { totalBet: 0, totalWon: 0, handsWon: 0, handsLost: 0 },
       'Flush Rush Bonus': { totalBet: 0, totalWon: 0, handsWon: 0, handsLost: 0 },
       'Super Flush Rush Bonus': { totalBet: 0, totalWon: 0, handsWon: 0, handsLost: 0 }
     }
-    
-    const handResults: never[] = []
     
     // Track 3-card flush stats by two highest cards (only for cards meeting minimum threshold)
     const threeCardStats: { [key: string]: { wins: number; losses: number; total: number } } = {}
@@ -459,8 +453,6 @@ Bonus Bets (optional):
       
 
       
-      setProgress(((hand + 1) / numHands) * 100)
-      
       // Update UI less frequently for performance
       const updateFrequency = Math.max(1, Math.floor(numHands / 50))
       if (hand % updateFrequency === 0) {
@@ -618,7 +610,7 @@ Bonus Bets (optional):
               size="lg"
             >
               {isSimulating ? (
-                <>Simulating... {progress.toFixed(0)}%</>
+                <>Simulating...</>
               ) : (
                 <>
                   <Play className="w-4 h-4 mr-2" />
@@ -626,15 +618,6 @@ Bonus Bets (optional):
                 </>
               )}
             </Button>
-            
-            {isSimulating && (
-              <div className="space-y-2">
-                <Progress value={progress} className="w-full" />
-                <p className="text-sm text-muted-foreground text-center">
-                  Hand {Math.floor(progress * numHands / 100).toLocaleString()} of {numHands.toLocaleString()}
-                </p>
-              </div>
-            )}
 
             <Button
               variant="outline"
@@ -901,7 +884,6 @@ Bonus Bets (optional):
             </CardContent>
           </Card>
         )}
-
 
       </div>
     </div>
