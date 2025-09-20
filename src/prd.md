@@ -31,14 +31,14 @@
 - **Success Criteria**: Easy-to-use interface for modifying payouts with immediate impact on simulations
 
 ### Comprehensive Results Display
-- **Functionality**: Show expected returns for base game (Ante/Play strategy) and both bonus bets
-- **Purpose**: Provide clear insights into optimal betting strategies and house advantages
-- **Success Criteria**: Clear tables showing win rates, expected returns, and statistical confidence
+- **Functionality**: Show expected returns for base game (Ante/Play strategy) and both bonus bets, plus detailed 3-card flush analysis by high card
+- **Purpose**: Provide clear insights into optimal betting strategies and house advantages, including granular analysis of 3-card flush decisions
+- **Success Criteria**: Clear tables showing win rates, expected returns, and statistical confidence with $1 betting units
 
 ### Hand Analysis Details
-- **Functionality**: Optional detailed view of individual hands showing cards dealt and outcomes
-- **Purpose**: Allow verification of simulation accuracy and understanding of game flow
-- **Success Criteria**: Clear display of 7-card hands with flush/straight flush identification
+- **Functionality**: Optional detailed view of individual hands showing cards dealt and outcomes, plus specialized tracking of 3-card flush win rates by high card (9, 10, J, Q)
+- **Purpose**: Allow verification of simulation accuracy, understanding of game flow, and analysis of optimal 3-card flush decisions
+- **Success Criteria**: Clear display of 7-card hands with flush/straight flush identification and comprehensive 3-card flush statistics
 
 ## Design Direction
 

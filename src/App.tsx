@@ -36,6 +36,14 @@ interface SimulationResult {
   winRate: number
 }
 
+interface ThreeCardFlushStats {
+  highCard: string
+  totalHands: number
+  wins: number
+  losses: number
+  winRate: number
+}
+
 interface HandResult {
   handNumber: number
   playerCards: string[]
@@ -59,6 +67,7 @@ function App() {
   const [handDetails, setHandDetails] = useState<HandResult[]>([])
   const [showDetails, setShowDetails] = useState(false)
   const [showConfig, setShowConfig] = useState(false)
+  const [threeCardFlushStats, setThreeCardFlushStats] = useState<ThreeCardFlushStats[]>([])
   
   const [payoutConfig, setPayoutConfig] = useState<PayoutConfig>({
     flushRush: {
@@ -83,8 +92,9 @@ Game Rules:
 • Player can make a Play wager of 1-3x their Ante based on flush cards:
   - 7+ flush cards: 3x Ante
   - 5-6 flush cards: 2x Ante  
-  - 3-4 flush cards: 1x Ante
-  - 0-2 flush cards: Fold (lose Ante)
+  - 4+ flush cards: 1x Ante
+  - 3 flush cards: 1x Ante (only if high card is 9 or higher)
+  - 0-2 flush cards or 3-card flush with high card < 9: Fold (lose Ante)
 • Dealer needs 3-card nine-high flush minimum to qualify
 • If dealer doesn't qualify: Ante pays even money, Play pushes
 • If dealer qualifies and player wins: Both Ante and Play pay even money
@@ -228,10 +238,15 @@ Bonus Bets (optional):
     return 'push'
   }
 
-  const getOptimalPlayWager = (flushCards: number, anteAmount: number): number => {
+  const getOptimalPlayWager = (flushCards: number, highCardValue: number, anteAmount: number): number => {
     if (flushCards >= 7) return anteAmount * 3
     if (flushCards >= 5) return anteAmount * 2
-    if (flushCards >= 3) return anteAmount * 1
+    if (flushCards >= 4) return anteAmount * 1
+    if (flushCards === 3) {
+      // Only play 3-card flush if high card is 9 or higher
+      if (highCardValue >= 9) return anteAmount * 1
+      return 0 // Fold if high card is less than 9
+    }
     return 0 // Fold
   }
 
@@ -257,9 +272,9 @@ Bonus Bets (optional):
     setProgress(0)
     
     const numHands = 1000
-    const anteAmount = 10
-    const flushRushBet = 5
-    const superFlushRushBet = 5
+    const anteAmount = 1  // Changed from $10 to $1
+    const flushRushBet = 1  // Changed from $5 to $1
+    const superFlushRushBet = 1  // Changed from $5 to $1
     
     const betTotals: { [key: string]: { totalBet: number; totalWon: number; handsWon: number; handsLost: number } } = {
       'Base Game (Ante + Play)': { totalBet: 0, totalWon: 0, handsWon: 0, handsLost: 0 },
@@ -268,6 +283,14 @@ Bonus Bets (optional):
     }
     
     const handResults: HandResult[] = []
+    
+    // Track 3-card flush stats by high card
+    const threeCardStats: { [key: string]: { wins: number; losses: number; total: number } } = {
+      '9': { wins: 0, losses: 0, total: 0 },
+      '10': { wins: 0, losses: 0, total: 0 },
+      'J': { wins: 0, losses: 0, total: 0 },
+      'Q': { wins: 0, losses: 0, total: 0 }
+    }
 
     for (let hand = 0; hand < numHands; hand++) {
       const deck = shuffleDeck(createDeck())
@@ -283,9 +306,21 @@ Bonus Bets (optional):
       // Find straight flushes for bonus bets
       const playerStraightFlush = findLongestStraightFlush(playerCards)
       
-      // Determine play wager based on player's flush cards
-      const playWager = getOptimalPlayWager(playerBestFlush.length, anteAmount)
+      // Get high card value for 3-card flush decisions
+      const highCardValue = playerBestFlush.length > 0 ? 
+        Math.max(...playerBestFlush.map(card => getRankValue(card.rank))) : 0
+      
+      // Determine play wager based on player's flush cards and high card
+      const playWager = getOptimalPlayWager(playerBestFlush.length, highCardValue, anteAmount)
       const shouldFold = playWager === 0
+      
+      // Track 3-card flush statistics for high cards 9, 10, J, Q
+      if (playerBestFlush.length === 3) {
+        const highCard = playerBestFlush.find(card => getRankValue(card.rank) === highCardValue)?.rank
+        if (highCard && ['9', '10', 'J', 'Q'].includes(highCard)) {
+          threeCardStats[highCard].total++
+        }
+      }
       
       // Evaluate dealer qualification
       const dealerQualified = dealerQualifies(dealerBestFlush)
@@ -310,6 +345,14 @@ Bonus Bets (optional):
           baseGamePayout = anteAmount // Just the ante back
           betTotals['Base Game (Ante + Play)'].totalWon += anteAmount
           betTotals['Base Game (Ante + Play)'].handsWon++
+          
+          // Track 3-card flush win for stats
+          if (playerBestFlush.length === 3) {
+            const highCard = playerBestFlush.find(card => getRankValue(card.rank) === highCardValue)?.rank
+            if (highCard && ['9', '10', 'J', 'Q'].includes(highCard)) {
+              threeCardStats[highCard].wins++
+            }
+          }
         } else {
           // Dealer qualifies - compare hands
           const comparison = compareFlushes(playerBestFlush, dealerBestFlush)
@@ -319,6 +362,14 @@ Bonus Bets (optional):
             baseGamePayout = totalWager * 2 // Both ante and play pay even money
             betTotals['Base Game (Ante + Play)'].totalWon += baseGamePayout
             betTotals['Base Game (Ante + Play)'].handsWon++
+            
+            // Track 3-card flush win for stats
+            if (playerBestFlush.length === 3) {
+              const highCard = playerBestFlush.find(card => getRankValue(card.rank) === highCardValue)?.rank
+              if (highCard && ['9', '10', 'J', 'Q'].includes(highCard)) {
+                threeCardStats[highCard].wins++
+              }
+            }
           } else if (comparison === 'push') {
             baseGameResult = 'push'
             baseGamePayout = totalWager // Get wager back
@@ -327,6 +378,14 @@ Bonus Bets (optional):
             baseGameResult = 'lose'
             baseGamePayout = 0
             betTotals['Base Game (Ante + Play)'].handsLost++
+            
+            // Track 3-card flush loss for stats
+            if (playerBestFlush.length === 3) {
+              const highCard = playerBestFlush.find(card => getRankValue(card.rank) === highCardValue)?.rank
+              if (highCard && ['9', '10', 'J', 'Q'].includes(highCard)) {
+                threeCardStats[highCard].losses++
+              }
+            }
           }
         }
       }
@@ -395,8 +454,21 @@ Bonus Bets (optional):
       }
     })
 
+    // Compile 3-card flush statistics
+    const threeCardFlushResults: ThreeCardFlushStats[] = Object.keys(threeCardStats).map(highCard => {
+      const stats = threeCardStats[highCard]
+      return {
+        highCard,
+        totalHands: stats.total,
+        wins: stats.wins,
+        losses: stats.losses,
+        winRate: stats.total > 0 ? (stats.wins / (stats.wins + stats.losses)) * 100 : 0
+      }
+    })
+
     setResults(simulationResults)
     setHandDetails(handResults)
+    setThreeCardFlushStats(threeCardFlushResults)
     setIsSimulating(false)
   }
 
@@ -631,7 +703,7 @@ Bonus Bets (optional):
           <Card>
             <CardHeader>
               <CardTitle>Expected Return Analysis</CardTitle>
-              <CardDescription>Statistical results from 1000 hands (Base: $10 Ante, Bonus: $5 each)</CardDescription>
+              <CardDescription>Statistical results from 1000 hands (Base: $1 Ante, Bonus: $1 each)</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
@@ -666,6 +738,48 @@ Bonus Bets (optional):
                   ))}
                 </TableBody>
               </Table>
+            </CardContent>
+          </Card>
+        )}
+
+        {threeCardFlushStats.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>3-Card Flush Win Rate by High Card</CardTitle>
+              <CardDescription>Performance analysis for 3-card flush hands when playing (high card 9+)</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>High Card</TableHead>
+                    <TableHead className="text-right">Total Hands</TableHead>
+                    <TableHead className="text-right">Wins</TableHead>
+                    <TableHead className="text-right">Losses</TableHead>
+                    <TableHead className="text-right">Win Rate</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {threeCardFlushStats.filter(stat => stat.totalHands > 0).map((stat) => (
+                    <TableRow key={stat.highCard}>
+                      <TableCell className="font-medium">{stat.highCard}</TableCell>
+                      <TableCell className="text-right">{stat.totalHands}</TableCell>
+                      <TableCell className="text-right">{stat.wins}</TableCell>
+                      <TableCell className="text-right">{stat.losses}</TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant="outline">
+                          {stat.winRate.toFixed(1)}%
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              {threeCardFlushStats.every(stat => stat.totalHands === 0) && (
+                <div className="text-center text-muted-foreground py-4">
+                  No 3-card flush hands with high cards 9, 10, J, or Q were dealt in this simulation.
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -706,13 +820,13 @@ Bonus Bets (optional):
                       <div className="flex justify-between">
                         <span>Flush Rush:</span>
                         <span className={hand.flushRushPayout > 0 ? 'text-green-600' : 'text-red-600'}>
-                          ${hand.flushRushPayout > 0 ? `+${hand.flushRushPayout}` : '-5'}
+                          ${hand.flushRushPayout > 0 ? `+${hand.flushRushPayout}` : '-1'}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span>Super Flush:</span>
                         <span className={hand.superFlushRushPayout > 0 ? 'text-green-600' : 'text-red-600'}>
-                          ${hand.superFlushRushPayout > 0 ? `+${hand.superFlushRushPayout}` : '-5'}
+                          ${hand.superFlushRushPayout > 0 ? `+${hand.superFlushRushPayout}` : '-1'}
                         </span>
                       </div>
                     </div>
