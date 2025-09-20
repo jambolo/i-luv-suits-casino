@@ -291,14 +291,18 @@ Bonus Bets (optional):
     
     const handResults: HandResult[] = []
     
-    // Track 3-card flush stats by high card
-    const threeCardStats: { [key: string]: { wins: number; losses: number; total: number } } = {
-      '9': { wins: 0, losses: 0, total: 0 },
-      '10': { wins: 0, losses: 0, total: 0 },
-      'J': { wins: 0, losses: 0, total: 0 },
-      'Q': { wins: 0, losses: 0, total: 0 },
-      'K': { wins: 0, losses: 0, total: 0 },
-      'A': { wins: 0, losses: 0, total: 0 }
+    // Track 3-card flush stats by high card (only for cards meeting minimum threshold)
+    const threeCardStats: { [key: string]: { wins: number; losses: number; total: number } } = {}
+    
+    // Initialize stats only for high cards that meet the minimum threshold
+    const highCardOrder = ['9', '10', 'J', 'Q', 'K', 'A']
+    const minThresholdIndex = highCardOrder.findIndex(card => {
+      const cardValue = card === 'J' ? 11 : card === 'Q' ? 12 : card === 'K' ? 13 : card === 'A' ? 14 : parseInt(card)
+      return cardValue >= minThreeCardFlushRank
+    })
+    
+    for (let i = minThresholdIndex; i < highCardOrder.length; i++) {
+      threeCardStats[highCardOrder[i]] = { wins: 0, losses: 0, total: 0 }
     }
 
     for (let hand = 0; hand < numHands; hand++) {
@@ -323,10 +327,10 @@ Bonus Bets (optional):
       const playWager = getOptimalPlayWager(playerBestFlush.length, highCardValue, anteAmount)
       const shouldFold = playWager === 0
       
-      // Track 3-card flush statistics for high cards 9+
+      // Track 3-card flush statistics for high cards that meet minimum threshold
       if (playerBestFlush.length === 3) {
         const highCard = playerBestFlush.find(card => getRankValue(card.rank) === highCardValue)?.rank
-        if (highCard && ['9', '10', 'J', 'Q', 'K', 'A'].includes(highCard)) {
+        if (highCard && highCardValue >= minThreeCardFlushRank && threeCardStats[highCard]) {
           threeCardStats[highCard].total++
         }
       }
@@ -358,7 +362,7 @@ Bonus Bets (optional):
           // Track 3-card flush win for stats
           if (playerBestFlush.length === 3) {
             const highCard = playerBestFlush.find(card => getRankValue(card.rank) === highCardValue)?.rank
-            if (highCard && ['9', '10', 'J', 'Q', 'K', 'A'].includes(highCard)) {
+            if (highCard && highCardValue >= minThreeCardFlushRank && threeCardStats[highCard]) {
               threeCardStats[highCard].wins++
             }
           }
@@ -375,7 +379,7 @@ Bonus Bets (optional):
             // Track 3-card flush win for stats
             if (playerBestFlush.length === 3) {
               const highCard = playerBestFlush.find(card => getRankValue(card.rank) === highCardValue)?.rank
-              if (highCard && ['9', '10', 'J', 'Q', 'K', 'A'].includes(highCard)) {
+              if (highCard && highCardValue >= minThreeCardFlushRank && threeCardStats[highCard]) {
                 threeCardStats[highCard].wins++
               }
             }
@@ -391,7 +395,7 @@ Bonus Bets (optional):
             // Track 3-card flush loss for stats
             if (playerBestFlush.length === 3) {
               const highCard = playerBestFlush.find(card => getRankValue(card.rank) === highCardValue)?.rank
-              if (highCard && ['9', '10', 'J', 'Q', 'K', 'A'].includes(highCard)) {
+              if (highCard && highCardValue >= minThreeCardFlushRank && threeCardStats[highCard]) {
                 threeCardStats[highCard].losses++
               }
             }
@@ -793,7 +797,7 @@ Bonus Bets (optional):
           <Card>
             <CardHeader>
               <CardTitle>3-Card Flush Win Rate by High Card</CardTitle>
-              <CardDescription>Performance analysis for 3-card flush hands when playing (high card {minThreeCardFlushRank >= 11 ? ['J', 'Q', 'K', 'A'][minThreeCardFlushRank - 11] : minThreeCardFlushRank}+)</CardDescription>
+              <CardDescription>Performance analysis for 3-card flush hands when playing (high card {getMinFlushDisplayText()}+)</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
@@ -824,7 +828,7 @@ Bonus Bets (optional):
               </Table>
               {threeCardFlushStats.every(stat => stat.totalHands === 0) && (
                 <div className="text-center text-muted-foreground py-4">
-                  No 3-card flush hands with high cards {minThreeCardFlushRank >= 11 ? ['J', 'Q', 'K', 'A'][minThreeCardFlushRank - 11] : minThreeCardFlushRank}+ were dealt in this simulation.
+                  No 3-card flush hands with high cards {getMinFlushDisplayText()}+ were dealt in this simulation.
                 </div>
               )}
             </CardContent>
