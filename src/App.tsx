@@ -68,7 +68,7 @@ function App() {
   const [showDetails, setShowDetails] = useState(false)
   const [showConfig, setShowConfig] = useState(false)
   const [threeCardFlushStats, setThreeCardFlushStats] = useState<ThreeCardFlushStats[]>([])
-  const [numHands, setNumHands] = useState(1000)
+  const [numHands, setNumHands] = useState(1000000)
   const [minThreeCardFlushRank, setMinThreeCardFlushRank] = useState(9) // Minimum high card value for 3-card flush
   
   const [payoutConfig, setPayoutConfig] = useState<PayoutConfig>({
@@ -513,7 +513,7 @@ Bonus Bets (optional):
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="text-center space-y-2">
           <h1 className="text-4xl font-bold text-foreground">I Luv Suits Poker Simulator</h1>
-          <p className="text-muted-foreground">Statistical analysis of 1000 hands with expected return calculations</p>
+          <p className="text-muted-foreground">Statistical analysis with configurable hand count and expected return calculations</p>
         </div>
 
         <Card>
@@ -541,14 +541,14 @@ Bonus Bets (optional):
                   <Input
                     id="num-hands"
                     type="number"
-                    min="100"
-                    max="10000"
-                    step="100"
+                    min="1000"
+                    max="10000000"
+                    step="1000"
                     value={numHands}
-                    onChange={(e) => setNumHands(parseInt(e.target.value) || 1000)}
+                    onChange={(e) => setNumHands(parseInt(e.target.value) || 1000000)}
                     disabled={isSimulating}
                   />
-                  <p className="text-xs text-muted-foreground">100 - 10,000 hands</p>
+                  <p className="text-xs text-muted-foreground">1,000 - 10,000,000 hands</p>
                 </div>
                 
                 <div className="space-y-2">
@@ -591,7 +591,7 @@ Bonus Bets (optional):
                 <div className="space-y-2">
                   <Progress value={progress} className="w-full" />
                   <p className="text-sm text-muted-foreground text-center">
-                    Hand {Math.floor(progress * numHands / 100)} of {numHands}
+                    Hand {Math.floor(progress * numHands / 100).toLocaleString()} of {numHands.toLocaleString()}
                   </p>
                 </div>
               )}
@@ -630,14 +630,14 @@ Bonus Bets (optional):
               {results.length > 0 ? (
                 <Alert>
                   <AlertDescription>
-                    Simulation complete! Analyzed {handDetails.length} hands across {results.length} bet types.
+                    Simulation complete! Analyzed {handDetails.length.toLocaleString()} hands across {results.length} bet types.
                     View the expected returns below.
                   </AlertDescription>
                 </Alert>
               ) : (
                 <Alert>
                   <AlertDescription>
-                    No simulation data available. Click "Run Simulation" to analyze {numHands} hands.
+                    No simulation data available. Click "Run Simulation" to analyze {numHands.toLocaleString()} hands.
                   </AlertDescription>
                 </Alert>
               )}
@@ -754,7 +754,7 @@ Bonus Bets (optional):
           <Card>
             <CardHeader>
               <CardTitle>Expected Return Analysis</CardTitle>
-              <CardDescription>Statistical results from {numHands} hands ($1 Ante, 1-3x Play, $1 Bonus bets)</CardDescription>
+              <CardDescription>Statistical results from {numHands.toLocaleString()} hands ($1 Ante, 1-3x Play, $1 Bonus bets)</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
@@ -775,7 +775,7 @@ Bonus Bets (optional):
                       <TableCell className="text-right">${result.totalBet}</TableCell>
                       <TableCell className="text-right">${result.totalWon}</TableCell>
                       <TableCell className="text-right">
-                        {result.handsWon} / {numHands}
+                        {result.handsWon} / {numHands.toLocaleString()}
                       </TableCell>
                       <TableCell className="text-right">
                         <Badge variant="outline">
