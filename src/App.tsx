@@ -85,17 +85,15 @@ function App() {
     }
   })
 
-  const gameRules = `I Luv Suits Poker is a seven (7) card poker game that lets players play against the dealer using seven (7) cards per player. The goal is to get a higher ranking flush with more flush cards than the dealer.
+  const gameRules = `I Luv Suits Poker is a seven (7) card poker game that lets players play against the dealer using seven (7) cards per player. The goal is to get a higher ranking flush with more flush cards than the dealer. There is a qualifier of a three (3) card nine-high flush for the dealer.
 
 Game Rules:
 • Player makes an Ante wager and receives 7 cards
-• Player can make a Play wager of 1-3x their Ante based on flush cards:
-  - 7+ flush cards: 3x Ante
-  - 5-6 flush cards: 2x Ante  
-  - 4+ flush cards: 1x Ante
-  - 3 flush cards: 1x Ante (only if high card is 9 or higher)
-  - 0-2 flush cards or 3-card flush with high card < 9: Fold (lose Ante)
+• Player can make a Play wager of 1-3x their Ante depending on how many flush cards they have:
+  - More flush cards = higher play wager (1x to 3x Ante)
+  - Player may fold their hand instead
 • Dealer needs 3-card nine-high flush minimum to qualify
+• If player's hand beats dealer's qualifying hand, player wins
 • If dealer doesn't qualify: Ante pays even money, Play pushes
 • If dealer qualifies and player wins: Both Ante and Play pay even money
 • If dealer qualifies and dealer wins: Both Ante and Play lose
@@ -224,10 +222,10 @@ Bonus Bets (optional):
     if (playerFlush.length < dealerFlush.length) return 'lose'
     
     // Same number of cards, compare high cards
-    const playerSorted = playerFlush.sort((a, b) => getRankValue(b.rank) - getRankValue(a.rank))
-    const dealerSorted = dealerFlush.sort((a, b) => getRankValue(b.rank) - getRankValue(a.rank))
+    const playerSorted = [...playerFlush].sort((a, b) => getRankValue(b.rank) - getRankValue(a.rank))
+    const dealerSorted = [...dealerFlush].sort((a, b) => getRankValue(b.rank) - getRankValue(a.rank))
     
-    for (let i = 0; i < playerSorted.length; i++) {
+    for (let i = 0; i < Math.min(playerSorted.length, dealerSorted.length); i++) {
       const playerValue = getRankValue(playerSorted[i].rank)
       const dealerValue = getRankValue(dealerSorted[i].rank)
       
@@ -239,15 +237,15 @@ Bonus Bets (optional):
   }
 
   const getOptimalPlayWager = (flushCards: number, highCardValue: number, anteAmount: number): number => {
-    if (flushCards >= 7) return anteAmount * 3
-    if (flushCards >= 5) return anteAmount * 2
-    if (flushCards >= 4) return anteAmount * 1
+    // Strategy: Play wager varies based on flush strength
+    if (flushCards >= 6) return anteAmount * 3  // Strong flush - max bet
+    if (flushCards >= 4) return anteAmount * 2  // Good flush - moderate bet
     if (flushCards === 3) {
       // Only play 3-card flush if high card is 9 or higher
       if (highCardValue >= 9) return anteAmount * 1
       return 0 // Fold if high card is less than 9
     }
-    return 0 // Fold
+    return 0 // Fold with 0-2 flush cards
   }
 
   const calculateFlushRushPayout = (flushCards: number): number => {
@@ -703,7 +701,7 @@ Bonus Bets (optional):
           <Card>
             <CardHeader>
               <CardTitle>Expected Return Analysis</CardTitle>
-              <CardDescription>Statistical results from 1000 hands (Base: $1 Ante, Bonus: $1 each)</CardDescription>
+              <CardDescription>Statistical results from 1000 hands ($1 Ante, 1-3x Play, $1 Bonus bets)</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
