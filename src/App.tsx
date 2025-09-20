@@ -44,28 +44,14 @@ interface ThreeCardFlushStats {
   winRate: number
 }
 
-interface HandResult {
-  handNumber: number
-  playerCards: string[]
-  dealerCards: string[]
-  playerFlushCards: number
-  dealerFlushCards: number
-  playerBestFlush: string[]
-  dealerBestFlush: string[]
-  dealerQualifies: boolean
-  baseGameResult: 'win' | 'lose' | 'push'
-  playWager: number
-  baseGamePayout: number
-  flushRushPayout: number
-  superFlushRushPayout: number
-}
+
 
 function App() {
   const [isSimulating, setIsSimulating] = useState(false)
   const [progress, setProgress] = useState(0)
   const [results, setResults] = useState<SimulationResult[]>([])
-  const [handDetails, setHandDetails] = useState<HandResult[]>([])
-  const [showDetails, setShowDetails] = useState(false)
+
+
   const [showConfig, setShowConfig] = useState(false)
   const [threeCardFlushStats, setThreeCardFlushStats] = useState<ThreeCardFlushStats[]>([])
   const [numHands, setNumHands] = useState(1000000)
@@ -289,7 +275,7 @@ Bonus Bets (optional):
       'Super Flush Rush Bonus': { totalBet: 0, totalWon: 0, handsWon: 0, handsLost: 0 }
     }
     
-    const handResults: HandResult[] = []
+    const handResults: never[] = []
     
     // Track 3-card flush stats by two highest cards (only for cards meeting minimum threshold)
     const threeCardStats: { [key: string]: { wins: number; losses: number; total: number } } = {}
@@ -445,23 +431,7 @@ Bonus Bets (optional):
         betTotals['Super Flush Rush Bonus'].handsLost++
       }
       
-      const handDetail: HandResult = {
-        handNumber: hand + 1,
-        playerCards: playerCards.map(c => `${c.rank}${c.suit}`),
-        dealerCards: dealerCards.map(c => `${c.rank}${c.suit}`),
-        playerFlushCards: playerBestFlush.length,
-        dealerFlushCards: dealerBestFlush.length,
-        playerBestFlush: playerBestFlush.map(c => `${c.rank}${c.suit}`),
-        dealerBestFlush: dealerBestFlush.map(c => `${c.rank}${c.suit}`),
-        dealerQualifies: dealerQualified,
-        baseGameResult,
-        playWager,
-        baseGamePayout,
-        flushRushPayout,
-        superFlushRushPayout
-      }
 
-      handResults.push(handDetail)
       
       setProgress(((hand + 1) / numHands) * 100)
       
@@ -516,10 +486,7 @@ Bonus Bets (optional):
         }
       })
 
-    setResults(simulationResults)
-    setHandDetails(handResults)
-    setThreeCardFlushStats(threeCardFlushResults)
-    setIsSimulating(false)
+
   }
 
   const formatPercentage = (value: number) => {
@@ -631,29 +598,14 @@ Bonus Bets (optional):
                 </div>
               )}
 
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="show-details"
-                    checked={showDetails}
-                    onChange={(e) => setShowDetails(e.target.checked)}
-                    className="rounded"
-                  />
-                  <label htmlFor="show-details" className="text-sm">
-                    Show hand details
-                  </label>
-                </div>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowConfig(!showConfig)}
-                >
-                  <Gear className="w-4 h-4 mr-2" />
-                  Payouts
-                </Button>
-              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowConfig(!showConfig)}
+              >
+                <Gear className="w-4 h-4 mr-2" />
+                Payouts
+              </Button>
             </CardContent>
           </Card>
 
@@ -665,7 +617,7 @@ Bonus Bets (optional):
               {results.length > 0 ? (
                 <Alert>
                   <AlertDescription>
-                    Simulation complete! Analyzed {handDetails.length.toLocaleString()} hands across {results.length} bet types.
+                    Simulation complete! Analyzed {numHands.toLocaleString()} hands across {results.length} bet types.
                     View the expected returns below.
                   </AlertDescription>
                 </Alert>
@@ -870,58 +822,7 @@ Bonus Bets (optional):
           </Card>
         )}
 
-        {showDetails && handDetails.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Hand Details</CardTitle>
-              <CardDescription>Individual hand results (showing first 20 hands)</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4 max-h-96 overflow-y-auto">
-                {handDetails.slice(0, 20).map((hand) => (
-                  <div key={hand.handNumber} className="border rounded-lg p-4 space-y-2">
-                    <div className="flex justify-between items-center">
-                      <h4 className="font-medium">Hand #{hand.handNumber}</h4>
-                      <Badge variant={hand.baseGameResult === 'win' ? 'default' : 'secondary'}>
-                        {hand.baseGameResult.toUpperCase()}
-                      </Badge>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                      <div>
-                        <span className="font-medium">Player ({hand.playerFlushCards} flush):</span>
-                        <div className="text-xs text-muted-foreground">{hand.playerCards.join(', ')}</div>
-                      </div>
-                      <div>
-                        <span className="font-medium">Dealer ({hand.dealerFlushCards} flush):</span>
-                        <div className="text-xs text-muted-foreground">{hand.dealerCards.join(', ')}</div>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
-                      <div className="flex justify-between">
-                        <span>Base Game:</span>
-                        <span className={hand.baseGamePayout > 0 ? 'text-green-600' : 'text-red-600'}>
-                          ${hand.baseGamePayout > 0 ? `+${hand.baseGamePayout}` : `${hand.baseGamePayout}`}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Flush Rush:</span>
-                        <span className={hand.flushRushPayout > 0 ? 'text-green-600' : 'text-red-600'}>
-                          ${hand.flushRushPayout > 0 ? `+${hand.flushRushPayout}` : '-1'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Super Flush:</span>
-                        <span className={hand.superFlushRushPayout > 0 ? 'text-green-600' : 'text-red-600'}>
-                          ${hand.superFlushRushPayout > 0 ? `+${hand.superFlushRushPayout}` : '-1'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+
       </div>
     </div>
   )
