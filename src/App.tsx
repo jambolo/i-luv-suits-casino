@@ -486,7 +486,10 @@ Bonus Bets (optional):
         }
       })
 
-
+    // Update state with results
+    setResults(simulationResults)
+    setThreeCardFlushStats(threeCardFlushResults)
+    setIsSimulating(false)
   }
 
   const formatPercentage = (value: number) => {
