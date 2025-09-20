@@ -44,6 +44,14 @@ interface ThreeCardFlushStats {
   winRate: number
 }
 
+interface HandDistributionStats {
+  totalHands: number
+  aboveMinimum: number
+  belowMinimum: number
+  aboveMinimumPercentage: number
+  belowMinimumPercentage: number
+}
+
 
 
 function App() {
@@ -54,6 +62,7 @@ function App() {
 
   const [showConfig, setShowConfig] = useState(false)
   const [threeCardFlushStats, setThreeCardFlushStats] = useState<ThreeCardFlushStats[]>([])
+  const [handDistribution, setHandDistribution] = useState<HandDistributionStats | null>(null)
   const [numHands, setNumHands] = useState(1000000)
   const [minThreeCardFlushRank, setMinThreeCardFlushRank] = useState(9) // Minimum high card value for 3-card flush
   
@@ -279,6 +288,10 @@ Bonus Bets (optional):
     
     // Track 3-card flush stats by two highest cards (only for cards meeting minimum threshold)
     const threeCardStats: { [key: string]: { wins: number; losses: number; total: number } } = {}
+    
+    // Track hand distribution relative to minimum threshold
+    let handsAboveMinimum = 0
+    let handsBelowMinimum = 0
 
     for (let hand = 0; hand < numHands; hand++) {
       const deck = shuffleDeck(createDeck())
@@ -301,6 +314,19 @@ Bonus Bets (optional):
       // Determine play wager based on player's flush cards and high card
       const playWager = getOptimalPlayWager(playerBestFlush.length, highCardValue, anteAmount)
       const shouldFold = playWager === 0
+      
+      // Track hand distribution relative to minimum threshold
+      // A hand is "above minimum" if it either:
+      // 1. Has 4+ flush cards (automatic play), OR
+      // 2. Has exactly 3 flush cards with high card >= minimum threshold
+      const meetsMinimumThreshold = playerBestFlush.length >= 4 || 
+        (playerBestFlush.length === 3 && highCardValue >= minThreeCardFlushRank)
+      
+      if (meetsMinimumThreshold) {
+        handsAboveMinimum++
+      } else {
+        handsBelowMinimum++
+      }
       
       // Track 3-card flush statistics for two highest cards that meet minimum threshold
       if (playerBestFlush.length === 3) {
@@ -486,9 +512,19 @@ Bonus Bets (optional):
         }
       })
 
+    // Compile hand distribution statistics
+    const handDistributionStats: HandDistributionStats = {
+      totalHands: numHands,
+      aboveMinimum: handsAboveMinimum,
+      belowMinimum: handsBelowMinimum,
+      aboveMinimumPercentage: (handsAboveMinimum / numHands) * 100,
+      belowMinimumPercentage: (handsBelowMinimum / numHands) * 100
+    }
+
     // Update state with results
     setResults(simulationResults)
     setThreeCardFlushStats(threeCardFlushResults)
+    setHandDistribution(handDistributionStats)
     setIsSimulating(false)
   }
 
@@ -779,6 +815,71 @@ Bonus Bets (optional):
                   ))}
                 </TableBody>
               </Table>
+            </CardContent>
+          </Card>
+        )}
+
+        {handDistribution && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Hand Distribution Analysis</CardTitle>
+              <CardDescription>Percentage of hands above and below the minimum 3-card flush threshold ({getMinFlushDisplayText()}+ high card)</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="text-center space-y-2">
+                  <div className="text-3xl font-bold text-green-600">
+                    {handDistribution.aboveMinimumPercentage.toFixed(1)}%
+                  </div>
+                  <div className="text-sm text-muted-foreground">Hands Above Minimum</div>
+                  <div className="text-xs text-muted-foreground">
+                    {handDistribution.aboveMinimum.toLocaleString()} / {handDistribution.totalHands.toLocaleString()} hands
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    (4+ flush cards OR 3-card flush with {getMinFlushDisplayText()}+ high card)
+                  </div>
+                </div>
+                
+                <div className="text-center space-y-2">
+                  <div className="text-3xl font-bold text-red-600">
+                    {handDistribution.belowMinimumPercentage.toFixed(1)}%
+                  </div>
+                  <div className="text-sm text-muted-foreground">Hands Below Minimum</div>
+                  <div className="text-xs text-muted-foreground">
+                    {handDistribution.belowMinimum.toLocaleString()} / {handDistribution.totalHands.toLocaleString()} hands
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    (0-2 flush cards OR 3-card flush with &lt;{getMinFlushDisplayText()} high card)
+                  </div>
+                </div>
+                
+                <div className="text-center space-y-2">
+                  <div className="text-3xl font-bold text-blue-600">
+                    {((handDistribution.aboveMinimum / handDistribution.belowMinimum) || 0).toFixed(2)}:1
+                  </div>
+                  <div className="text-sm text-muted-foreground">Play to Fold Ratio</div>
+                  <div className="text-xs text-muted-foreground">
+                    How many hands we play vs fold
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-6">
+                <div className="flex h-2 rounded-full overflow-hidden">
+                  <div 
+                    className="bg-green-500" 
+                    style={{ width: `${handDistribution.aboveMinimumPercentage}%` }}
+                  ></div>
+                  <div 
+                    className="bg-red-500" 
+                    style={{ width: `${handDistribution.belowMinimumPercentage}%` }}
+                  ></div>
+                </div>
+                <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                  <span>Play ({handDistribution.aboveMinimumPercentage.toFixed(1)}%)</span>
+                  <span>Fold ({handDistribution.belowMinimumPercentage.toFixed(1)}%)</span>
+                </div>
+              </div>
             </CardContent>
           </Card>
         )}
