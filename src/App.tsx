@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
+import { Progress } from '@/components/ui/progress'
 import { Play, ChartBar, TrendDown, TrendUp, Gear } from '@phosphor-icons/react'
 
 interface PayoutConfig {
@@ -54,6 +55,7 @@ interface HandDistributionStats {
 
 function App() {
   const [isSimulating, setIsSimulating] = useState(false)
+  const [simulationProgress, setSimulationProgress] = useState(0)
   const [results, setResults] = useState<SimulationResult[]>([])
 
 
@@ -269,6 +271,7 @@ Bonus Bets (optional):
 
   const simulateHands = async () => {
     setIsSimulating(true)
+    setSimulationProgress(0)
     
     const anteAmount = 1
     const flushRushBet = 1
@@ -453,10 +456,12 @@ Bonus Bets (optional):
       
 
       
-      // Update UI less frequently for performance
-      const updateFrequency = Math.max(1, Math.floor(numHands / 50))
+      // Update progress and UI less frequently for performance
+      const updateFrequency = Math.max(1, Math.floor(numHands / 100))
       if (hand % updateFrequency === 0) {
-        await new Promise(resolve => setTimeout(resolve, 10))
+        const progress = (hand / numHands) * 100
+        setSimulationProgress(progress)
+        await new Promise(resolve => setTimeout(resolve, 1))
       }
     }
 
@@ -517,7 +522,13 @@ Bonus Bets (optional):
     setResults(simulationResults)
     setThreeCardFlushStats(threeCardFlushResults)
     setHandDistribution(handDistributionStats)
-    setIsSimulating(false)
+    setSimulationProgress(100)
+    
+    // Small delay to show 100% completion before hiding progress
+    setTimeout(() => {
+      setIsSimulating(false)
+      setSimulationProgress(0)
+    }, 500)
   }
 
   const formatPercentage = (value: number) => {
@@ -618,6 +629,19 @@ Bonus Bets (optional):
                 </>
               )}
             </Button>
+
+            {isSimulating && (
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Simulation Progress</span>
+                  <span>{simulationProgress.toFixed(1)}%</span>
+                </div>
+                <Progress value={simulationProgress} className="w-full" />
+                <p className="text-xs text-muted-foreground text-center">
+                  Processing {numHands.toLocaleString()} hands... ({Math.floor((simulationProgress / 100) * numHands).toLocaleString()} completed)
+                </p>
+              </div>
+            )}
 
             <Button
               variant="outline"
