@@ -51,8 +51,6 @@ interface HandDistributionStats {
   belowMinimumPercentage: number
 }
 
-
-
 function App() {
   const [isSimulating, setIsSimulating] = useState(false)
   const [simulationProgress, setSimulationProgress] = useState(0)
@@ -343,13 +341,8 @@ Bonus Bets (optional):
       // Evaluate dealer qualification
       const dealerQualified = dealerQualifies(dealerBestFlush)
       
-      let baseGameResult: 'win' | 'lose' | 'push' = 'lose'
-      let baseGamePayout = 0
-      
       if (shouldFold) {
         // Player folds - loses ante only
-        baseGameResult = 'lose'
-        baseGamePayout = 0
         betTotals['Base Game (Ante + Play)'].totalBet += anteAmount
         betTotals['Base Game (Ante + Play)'].handsLost++
       } else {
@@ -359,8 +352,6 @@ Bonus Bets (optional):
         
         if (!dealerQualified) {
           // Dealer doesn't qualify - ante pays even money, play pushes
-          baseGameResult = 'win'
-          baseGamePayout = anteAmount // Just the ante back
           betTotals['Base Game (Ante + Play)'].totalWon += anteAmount
           betTotals['Base Game (Ante + Play)'].handsWon++
           
@@ -383,9 +374,7 @@ Bonus Bets (optional):
           const comparison = compareFlushes(playerBestFlush, dealerBestFlush)
           
           if (comparison === 'win') {
-            baseGameResult = 'win'
-            baseGamePayout = totalWager * 2 // Both ante and play pay even money
-            betTotals['Base Game (Ante + Play)'].totalWon += baseGamePayout
+            betTotals['Base Game (Ante + Play)'].totalWon += totalWager * 2 // Both ante and play pay even money
             betTotals['Base Game (Ante + Play)'].handsWon++
             
             // Track 3-card flush win for stats
@@ -403,12 +392,8 @@ Bonus Bets (optional):
               }
             }
           } else if (comparison === 'push') {
-            baseGameResult = 'push'
-            baseGamePayout = totalWager // Get wager back
-            betTotals['Base Game (Ante + Play)'].totalWon += baseGamePayout
+            betTotals['Base Game (Ante + Play)'].totalWon += totalWager // Get wager back
           } else {
-            baseGameResult = 'lose'
-            baseGamePayout = 0
             betTotals['Base Game (Ante + Play)'].handsLost++
             
             // Track 3-card flush loss for stats
