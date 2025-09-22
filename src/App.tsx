@@ -9,6 +9,11 @@ import { Separator } from '@/components/ui/separator'
 import { Progress } from '@/components/ui/progress'
 import { Play, ChartBar, TrendDown, TrendUp, Gear } from '@phosphor-icons/react'
 
+// Static data moved outside component to avoid recreation on each render
+const suits = ['♠', '♥', '♦', '♣']
+const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
+const highCardNames = ['Jack', 'Queen', 'King', 'Ace']
+
 interface PayoutConfig {
   flushRush: {
     sevenCard: number
@@ -79,7 +84,7 @@ function App() {
 
   const getMinFlushDisplayText = () => {
     if (minThreeCardFlushRank >= 11) {
-      return ['Jack', 'Queen', 'King', 'Ace'][minThreeCardFlushRank - 11]
+      return highCardNames[minThreeCardFlushRank - 11]
     }
     return minThreeCardFlushRank.toString()
   }
@@ -102,9 +107,6 @@ Bonus Bets (optional):
 • Flush Rush Bonus: Pays based on player's flush cards (4+ to win)
 • Super Flush Rush Bonus: Pays based on player's straight flush cards (3+ to win)
 • Bonus bets win/lose regardless of base game outcome`
-
-  const suits = ['♠', '♥', '♦', '♣']
-  const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
 
   const createDeck = (): { rank: string; suit: string }[] => {
     const deck: { rank: string; suit: string }[] = []
