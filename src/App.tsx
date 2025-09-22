@@ -57,8 +57,6 @@ function App() {
   const [isSimulating, setIsSimulating] = useState(false)
   const [simulationProgress, setSimulationProgress] = useState(0)
   const [results, setResults] = useState<SimulationResult[]>([])
-
-
   const [showConfig, setShowConfig] = useState(false)
   const [threeCardFlushStats, setThreeCardFlushStats] = useState<ThreeCardFlushStats[]>([])
   const [handDistribution, setHandDistribution] = useState<HandDistributionStats | null>(null)
@@ -453,8 +451,6 @@ Bonus Bets (optional):
       } else {
         betTotals['Super Flush Rush Bonus'].handsLost++
       }
-      
-
       
       // Update progress and UI less frequently for performance
       const updateFrequency = Math.max(1, Math.floor(numHands / 100))
